@@ -69,7 +69,16 @@ def process_tap(user_id):
         return {"success": False, "error": "❌ Аирдроп уже запущен!"}
     
     if uid not in data["players"]:
-        return {"success": False, "error": "User not found"}
+        data["players"][uid] = {
+            "username": f"user_{user_id}",
+            "total_taps": 0,
+            "tokens": START_BONUS,
+            "energy": 100,
+            "last_tap": 0,
+            "combo": 0
+        }
+        data["total_users"] += 1
+        save_data(data)
     
     player = data["players"][uid]
     
@@ -122,50 +131,93 @@ HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Tap2Drop</title>
     <style>
-        * { user-select: none; -webkit-tap-highlight-color: transparent; }
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         body {
             background: linear-gradient(135deg, #0a0a1a, #1a1a2e);
             color: white;
-            font-family: Arial;
+            font-family: Arial, sans-serif;
             text-align: center;
             padding: 20px;
+            min-height: 100vh;
+            padding-bottom: 80px;
         }
-        .tap-btn {
+        .header {
+            background: rgba(0,0,0,0.4);
+            border-radius: 20px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 10px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .burn-value {
+            color: #ff6666;
+        }
+        .tap-area {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        .tap-button {
             width: 200px;
             height: 200px;
             border-radius: 50%;
             background: linear-gradient(135deg, #ffd700, #ff6600);
-            margin: 30px auto;
+            box-shadow: 0 20px 30px rgba(0,0,0,0.4);
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-size: 64px;
             cursor: pointer;
-            transition: transform 0.08s;
+            transition: transform 0.08s ease;
         }
-        .tap-btn:active { transform: scale(0.95); }
-        .stats {
-            background: rgba(0,0,0,0.4);
-            padding: 15px;
-            border-radius: 20px;
-            margin: 20px 0;
+        .tap-button:active {
+            transform: scale(0.95);
+        }
+        .tap-icon {
+            font-size: 64px;
+        }
+        .tap-text {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 8px;
         }
         .energy-bar {
             background: #333;
             height: 10px;
             border-radius: 10px;
             overflow: hidden;
-            margin: 10px 0;
+            margin: 15px 0;
         }
         .energy-fill {
             background: linear-gradient(90deg, #00ff00, #ffff00);
             height: 100%;
             transition: width 0.3s;
         }
-        .combo { color: #ff6600; margin: 10px 0; font-size: 18px; }
+        .combo {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #ff6600;
+            min-height: 45px;
+        }
         .progress-bar {
             background: #333;
             height: 6px;
@@ -178,6 +230,34 @@ HTML = """
             height: 100%;
             transition: width 0.3s;
         }
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 20px 0;
+        }
+        .game-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .game-card:active {
+            transform: scale(0.95);
+        }
+        .game-icon {
+            font-size: 32px;
+            margin-bottom: 6px;
+        }
+        .game-name {
+            font-size: 12px;
+        }
+        .game-reward {
+            font-size: 10px;
+            color: #ffd700;
+        }
         .nav {
             position: fixed;
             bottom: 0;
@@ -185,23 +265,28 @@ HTML = """
             right: 0;
             background: rgba(0,0,0,0.95);
             display: flex;
+            justify-content: space-around;
             padding: 12px;
-            justify-content: center;
-            gap: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
         }
         .nav-btn {
             background: none;
             border: none;
             color: #888;
-            padding: 8px 20px;
+            font-size: 12px;
+            padding: 8px 16px;
             border-radius: 20px;
             cursor: pointer;
         }
-        .nav-btn.active { color: #ffd700; background: rgba(255,215,0,0.2); }
+        .nav-btn.active {
+            color: #ffd700;
+            background: rgba(255,215,0,0.2);
+        }
         .particle {
             position: fixed;
             pointer-events: none;
             font-size: 14px;
+            font-weight: bold;
             color: gold;
             animation: floatUp 0.5s forwards;
             z-index: 1000;
@@ -210,46 +295,98 @@ HTML = """
             0% { opacity: 1; transform: translateY(0); }
             100% { opacity: 0; transform: translateY(-50px); }
         }
-        .games-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin: 20px 0;
-        }
-        .game-card {
+        .profile-card {
             background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 12px;
-            cursor: pointer;
+            border-radius: 16px;
+            padding: 16px;
+            margin: 15px 0;
+            text-align: left;
         }
-        .game-card:active { transform: scale(0.95); }
+        .profile-card p {
+            margin: 8px 0;
+        }
+        .referral-code {
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 10px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 12px;
+            text-align: center;
+        }
+        .achievement {
+            background: rgba(255,215,0,0.1);
+            padding: 8px;
+            border-radius: 10px;
+            margin: 5px 0;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
-    <h1>🔥 Tap2Drop</h1>
-    <div class="stats">
-        <div>💰 <span id="tokens">0</span> $T2D</div>
-        <div>⚡ <span id="energy">100</span>/100</div>
-        <div class="energy-bar"><div class="energy-fill" id="energyFill"></div></div>
-        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="header">
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">💰</div>
+                <div class="stat-value" id="tokens">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">⚡</div>
+                <div class="stat-value" id="energy">100</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">📉</div>
+                <div class="stat-value" id="emission">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">🔥</div>
+                <div class="stat-value burn-value" id="burned">0</div>
+            </div>
+        </div>
+        <div class="energy-bar">
+            <div class="energy-fill" id="energyFill"></div>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
         <div>🎯 <span id="progressText">0</span>% до аирдропа</div>
     </div>
     
-    <div class="tap-btn" id="tapBtn">🖱️</div>
-    <div>+<span id="tapValue">0.00</span> $T2D</div>
+    <div class="tap-area">
+        <div class="tap-button" id="tapBtn">
+            <div class="tap-icon">🖱️</div>
+            <div class="tap-text">ТАП</div>
+            <div id="tapValue" style="font-size:12px;">+0.00</div>
+            <div id="burnValue" style="font-size:10px; color:#ff8888;">🔥 0.00 сгорает</div>
+        </div>
+    </div>
+    
     <div class="combo" id="combo"></div>
     
     <div id="gamesPanel" style="display:none;">
         <div class="games-grid">
-            <div class="game-card" onclick="playGame('match')">🃏<br>Мем-матч<br><small>+10-60⚡</small></div>
-            <div class="game-card" onclick="playGame('quiz')">📚<br>Викторина<br><small>+30-50⚡</small></div>
-            <div class="game-card" onclick="playGame('slot')">🎰<br>Слоты<br><small>+5-100⚡</small></div>
+            <div class="game-card" onclick="playGame('match')">
+                <div class="game-icon">🃏</div>
+                <div class="game-name">Мем-матч</div>
+                <div class="game-reward">+10-60⚡</div>
+            </div>
+            <div class="game-card" onclick="playGame('quiz')">
+                <div class="game-icon">📚</div>
+                <div class="game-name">Викторина</div>
+                <div class="game-reward">+30-50⚡</div>
+            </div>
+            <div class="game-card" onclick="playGame('slot')">
+                <div class="game-icon">🎰</div>
+                <div class="game-name">Слоты</div>
+                <div class="game-reward">+5-100⚡</div>
+            </div>
         </div>
     </div>
     
     <div id="profilePanel" style="display:none;">
-        <div id="profileInfo"></div>
+        <div id="profileInfo" class="profile-card"></div>
         <div id="referralLink"></div>
+        <div id="achievements"></div>
     </div>
     
     <div class="nav">
@@ -261,53 +398,132 @@ HTML = """
     <script>
         let userId = null;
         let tg = window.Telegram?.WebApp;
-        if (tg) { tg.expand(); tg.ready(); userId = tg.initDataUnsafe?.user?.id; }
+        if (tg) {
+            tg.expand();
+            tg.ready();
+            userId = tg.initDataUnsafe?.user?.id;
+            console.log("User ID:", userId);
+        }
         
         async function loadData() {
-            if (!userId) return;
-            let r = await fetch('/api/user/' + userId);
-            let d = await r.json();
-            if (d.success) {
-                document.getElementById('tokens').innerText = Math.floor(d.tokens);
-                document.getElementById('energy').innerText = d.energy;
-                document.getElementById('energyFill').style.width = (d.energy / 100 * 100) + '%';
-                document.getElementById('progressFill').style.width = (d.progress || 0) + '%';
-                document.getElementById('progressText').innerText = d.progress?.toFixed(2) || '0';
+            if (!userId) {
+                console.log("No user ID");
+                return;
+            }
+            try {
+                let r = await fetch('/api/user/' + userId);
+                let d = await r.json();
+                console.log("User data:", d);
+                if (d.success) {
+                    document.getElementById('tokens').innerText = Math.floor(d.tokens).toLocaleString();
+                    document.getElementById('energy').innerText = d.energy;
+                    document.getElementById('emission').innerText = d.emission_rate?.toFixed(2) || '0';
+                    document.getElementById('energyFill').style.width = (d.energy / 100 * 100) + '%';
+                    document.getElementById('progressFill').style.width = (d.progress || 0) + '%';
+                    document.getElementById('progressText').innerText = d.progress?.toFixed(2) || '0';
+                }
+            } catch(e) {
+                console.error("Load error:", e);
             }
         }
         
         document.getElementById('tapBtn').onclick = async () => {
-            if (!userId) return;
+            if (!userId) {
+                alert("Не удалось определить пользователя. Перезапустите приложение.");
+                return;
+            }
             let btn = document.getElementById('tapBtn');
             btn.style.transform = 'scale(0.95)';
             setTimeout(() => btn.style.transform = '', 100);
             
-            let r = await fetch('/api/tap', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({user_id: userId}) });
-            let d = await r.json();
-            if (d.success) {
-                document.getElementById('tokens').innerText = Math.floor(d.tokens);
-                document.getElementById('energy').innerText = d.energy;
-                document.getElementById('tapValue').innerText = d.earned.toFixed(4);
-                document.getElementById('energyFill').style.width = (d.energy / 100 * 100) + '%';
-                if (d.combo > 1) document.getElementById('combo').innerHTML = `🔥 x${d.combo} COMBO! +${d.bonus_percent.toFixed(0)}%`;
-                else document.getElementById('combo').innerHTML = '';
-                
-                let p = document.createElement('div'); p.className = 'particle';
-                p.innerHTML = `+${d.earned.toFixed(4)}`;
-                p.style.left = Math.random() * window.innerWidth + 'px';
-                p.style.top = window.innerHeight - 150 + 'px';
-                document.body.appendChild(p);
-                setTimeout(() => p.remove(), 500);
+            try {
+                let r = await fetch('/api/tap', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({user_id: userId})
+                });
+                let d = await r.json();
+                console.log("Tap response:", d);
+                if (d.success) {
+                    document.getElementById('tokens').innerText = Math.floor(d.tokens).toLocaleString();
+                    document.getElementById('energy').innerText = d.energy;
+                    document.getElementById('tapValue').innerHTML = `+${d.earned.toFixed(4)}`;
+                    document.getElementById('burnValue').innerHTML = `🔥 ${d.burned.toFixed(4)} сгорает`;
+                    document.getElementById('energyFill').style.width = (d.energy / 100 * 100) + '%';
+                    
+                    if (d.combo > 1) {
+                        document.getElementById('combo').innerHTML = `🔥 x${d.combo} COMBO! +${d.bonus_percent.toFixed(0)}%`;
+                    } else {
+                        document.getElementById('combo').innerHTML = '';
+                    }
+                    
+                    let p = document.createElement('div');
+                    p.className = 'particle';
+                    p.innerHTML = `+${d.earned.toFixed(4)}`;
+                    p.style.left = Math.random() * window.innerWidth + 'px';
+                    p.style.top = window.innerHeight - 150 + 'px';
+                    document.body.appendChild(p);
+                    setTimeout(() => p.remove(), 500);
+                } else if (d.error) {
+                    alert(d.error);
+                }
+            } catch(e) {
+                console.error("Tap error:", e);
+                alert("Ошибка соединения. Проверьте интернет.");
             }
         };
         
         async function playGame(game) {
-            let r = await fetch('/api/play_game', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({user_id: userId, game: game}) });
-            let d = await r.json();
-            if (d.success) {
-                alert(`🎮 Игра завершена! +${d.energy_gain} ⚡`);
-                document.getElementById('energy').innerText = d.new_energy;
-                document.getElementById('energyFill').style.width = (d.new_energy / 100 * 100) + '%';
+            if (!userId) return;
+            try {
+                let r = await fetch('/api/play_game', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({user_id: userId, game: game})
+                });
+                let d = await r.json();
+                if (d.success) {
+                    alert(`🎮 Игра завершена! +${d.energy_gain} ⚡ энергии`);
+                    document.getElementById('energy').innerText = d.new_energy;
+                    document.getElementById('energyFill').style.width = (d.new_energy / 100 * 100) + '%';
+                } else {
+                    alert(d.error);
+                }
+            } catch(e) {
+                alert("Ошибка игры");
+            }
+        }
+        
+        async function loadProfile() {
+            if (!userId) return;
+            try {
+                let r = await fetch('/api/user/' + userId);
+                let d = await r.json();
+                if (d.success) {
+                    document.getElementById('profileInfo').innerHTML = `
+                        <p>👤 ${d.username}</p>
+                        <p>📊 Тапов: ${d.total_taps?.toLocaleString() || 0}</p>
+                        <p>💰 Токенов: ${Math.floor(d.tokens).toLocaleString()} $T2D</p>
+                        <p>⚡ Энергии: ${d.energy}/100</p>
+                    `;
+                    
+                    let botUsername = "Tap2Drop_official_bot";
+                    document.getElementById('referralLink').innerHTML = `
+                        <h4>👥 Реферальная ссылка</h4>
+                        <div class="referral-code">https://t.me/${botUsername}?start=ref_${userId}</div>
+                        <p style="font-size:11px; margin-top:8px;">Приведи друга → получи 10% от его токенов!</p>
+                    `;
+                    
+                    let achievementsHtml = '<h4>🏆 Достижения</h4>';
+                    if (d.total_taps >= 1000) achievementsHtml += '<div class="achievement">🥉 Бронзовый палец (1000 тапов)</div>';
+                    if (d.total_taps >= 10000) achievementsHtml += '<div class="achievement">🥈 Серебряный палец (10000 тапов)</div>';
+                    if (d.total_taps >= 100000) achievementsHtml += '<div class="achievement">🥇 Золотой палец (100000 тапов)</div>';
+                    if (d.total_taps >= 1000000) achievementsHtml += '<div class="achievement">💎 Алмазный палец (1M тапов)</div>';
+                    if (d.total_taps < 1000) achievementsHtml += '<p>Начни тапать, чтобы получить достижения!</p>';
+                    document.getElementById('achievements').innerHTML = achievementsHtml;
+                }
+            } catch(e) {
+                console.error("Profile error:", e);
             }
         }
         
@@ -316,31 +532,12 @@ HTML = """
                 document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 let tab = btn.dataset.tab;
-                document.getElementById('tapBtn').style.display = tab === 'tap' ? 'flex' : 'none';
+                document.querySelector('.tap-area').style.display = tab === 'tap' ? 'flex' : 'none';
                 document.getElementById('gamesPanel').style.display = tab === 'games' ? 'block' : 'none';
                 document.getElementById('profilePanel').style.display = tab === 'profile' ? 'block' : 'none';
                 if (tab === 'profile') loadProfile();
             };
         });
-        
-        async function loadProfile() {
-            if (!userId) return;
-            let r = await fetch('/api/user/' + userId);
-            let d = await r.json();
-            if (d.success) {
-                document.getElementById('profileInfo').innerHTML = `
-                    <div style="background:rgba(255,255,255,0.1); padding:15px; border-radius:15px;">
-                        <p>👤 ${d.username}</p>
-                        <p>📊 Тапов: ${d.total_taps}</p>
-                        <p>💰 Токенов: ${Math.floor(d.tokens)} $T2D</p>
-                    </div>
-                `;
-                document.getElementById('referralLink').innerHTML = `
-                    <h4>👥 Реферальная ссылка</h4>
-                    <code>https://t.me/ВашБот?start=ref_${userId}</code>
-                `;
-            }
-        }
         
         loadData();
         setInterval(loadData, 5000);
@@ -373,6 +570,7 @@ def get_user(user_id):
     
     player = data["players"][uid]
     airdrop = get_airdrop_info(data)
+    active = get_active_users(data)
     
     return jsonify({
         "success": True,
@@ -380,6 +578,7 @@ def get_user(user_id):
         "tokens": player["tokens"],
         "energy": player["energy"],
         "total_taps": player["total_taps"],
+        "emission_rate": get_emission_rate(active),
         "progress": airdrop["progress"]
     })
 
@@ -452,8 +651,7 @@ def start(message):
     player = data["players"][uid]
     airdrop = get_airdrop_info(data)
     
-    # Получаем URL из переменной окружения Render
-    webapp_url = os.environ.get("RENDER_EXTERNAL_URL", "https://your-app.onrender.com")
+    webapp_url = os.environ.get("RENDER_EXTERNAL_URL", "https://t2d-official.onrender.com")
     keyboard = telebot.types.InlineKeyboardMarkup()
     keyboard.add(telebot.types.InlineKeyboardButton(
         text="🚀 ИГРАТЬ",
@@ -478,5 +676,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
 
-# Для Render
 application = app
