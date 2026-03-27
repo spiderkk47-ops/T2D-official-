@@ -1,6 +1,7 @@
-# app.py — Tap2Drop бот (полностью исправленная версия)
+# app.py — Tap2Drop бот (с Reply-кнопкой WebApp)
 from flask import Flask, request, jsonify
 import telebot
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 import json
 import os
 import time
@@ -391,23 +392,21 @@ HTML = """
         let userId = null;
         let tg = window.Telegram?.WebApp;
         
-        // Получаем ID пользователя из Telegram WebApp
         if (tg) {
             tg.expand();
             tg.ready();
             userId = tg.initDataUnsafe?.user?.id;
-            console.log("Telegram WebApp detected, User ID:", userId);
+            console.log("User ID from WebApp:", userId);
         }
         
-        // Если нет user ID — показываем инструкцию
         if (!userId) {
             document.body.innerHTML = `
                 <div class="error-container" style="background: linear-gradient(135deg, #0a0a1a, #1a1a2e); min-height: 100vh; color: white;">
                     <h2>❌ Ошибка</h2>
                     <p style="margin: 20px 0;">Не удалось определить пользователя.</p>
                     <p>Пожалуйста, откройте это приложение <strong>ТОЛЬКО через кнопку в Telegram боте</strong>.</p>
-                    <p style="margin: 20px 0;">👇 Нажмите кнопку "🚀 ИГРАТЬ" в боте</p>
-                    <button onclick="window.location.href='https://t.me/Tap2Drop_official_bot'">
+                    <p style="margin: 20px 0;">👇 Нажмите кнопку "🚀 ИГРАТЬ" внизу экрана</p>
+                    <button onclick="window.location.href='https://t.me/Tap2Drop_Official_bot'">
                         🔙 Открыть бота
                     </button>
                 </div>
@@ -415,7 +414,6 @@ HTML = """
             throw new Error("No user ID");
         }
         
-        // Загрузка данных пользователя
         async function loadData() {
             if (!userId) return;
             try {
@@ -434,7 +432,6 @@ HTML = """
             }
         }
         
-        // Обработка тапа
         document.getElementById('tapBtn').onclick = async () => {
             if (!userId) return;
             let btn = document.getElementById('tapBtn');
@@ -473,11 +470,10 @@ HTML = """
                 }
             } catch(e) {
                 console.error("Tap error:", e);
-                alert("Ошибка соединения. Проверьте интернет.");
+                alert("Ошибка соединения");
             }
         };
         
-        // Мини-игры
         async function playGame(game) {
             if (!userId) return;
             try {
@@ -488,7 +484,7 @@ HTML = """
                 });
                 let data = await resp.json();
                 if (data.success) {
-                    alert(`🎮 Игра завершена! +${data.energy_gain} ⚡ энергии`);
+                    alert(`🎮 Игра завершена! +${data.energy_gain} ⚡`);
                     document.getElementById('energy').innerText = data.new_energy;
                     document.getElementById('energyFill').style.width = (data.new_energy / 100 * 100) + '%';
                 } else {
@@ -499,7 +495,6 @@ HTML = """
             }
         }
         
-        // Загрузка профиля
         async function loadProfile() {
             if (!userId) return;
             try {
@@ -513,7 +508,7 @@ HTML = """
                         <p>⚡ Энергии: ${data.energy}/100</p>
                     `;
                     
-                    let botUsername = "Tap2Drop_official_bot";
+                    let botUsername = "Tap2Drop_Official_bot";
                     document.getElementById('referralLink').innerHTML = `
                         <h4>👥 Реферальная ссылка</h4>
                         <div class="referral-code">https://t.me/${botUsername}?start=ref_${userId}</div>
@@ -524,7 +519,6 @@ HTML = """
                     if (data.total_taps >= 1000) achievementsHtml += '<div class="achievement">🥉 Бронзовый палец (1000 тапов)</div>';
                     if (data.total_taps >= 10000) achievementsHtml += '<div class="achievement">🥈 Серебряный палец (10000 тапов)</div>';
                     if (data.total_taps >= 100000) achievementsHtml += '<div class="achievement">🥇 Золотой палец (100000 тапов)</div>';
-                    if (data.total_taps >= 1000000) achievementsHtml += '<div class="achievement">💎 Алмазный палец (1M тапов)</div>';
                     if (data.total_taps < 1000) achievementsHtml += '<p>Начни тапать, чтобы получить достижения!</p>';
                     document.getElementById('achievements').innerHTML = achievementsHtml;
                 }
@@ -533,7 +527,6 @@ HTML = """
             }
         }
         
-        // Навигация
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.onclick = () => {
                 document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -546,7 +539,6 @@ HTML = """
             };
         });
         
-        // Запуск
         loadData();
         setInterval(loadData, 5000);
     </script>
@@ -662,12 +654,16 @@ def start(message):
     player = data["players"][uid]
     airdrop = get_airdrop_info(data)
     
+    # ПОЛУЧАЕМ URL ПРИЛОЖЕНИЯ
     webapp_url = os.environ.get("RENDER_EXTERNAL_URL", "https://t2d-official.onrender.com")
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    keyboard.add(telebot.types.InlineKeyboardButton(
+    
+    # СОЗДАЕМ КНОПКУ С WebApp (Reply-кнопка, всегда видна внизу)
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
+    webapp_button = KeyboardButton(
         text="🚀 ИГРАТЬ",
-        web_app=telebot.types.WebAppInfo(url=webapp_url)
-    ))
+        web_app=WebAppInfo(url=webapp_url)
+    )
+    keyboard.add(webapp_button)
     
     bot.send_message(
         message.chat.id,
@@ -677,7 +673,7 @@ def start(message):
         f"⚡ Энергии: {player['energy']}/100\n"
         f"📊 Тапов: {player['total_taps']}\n\n"
         f"{airdrop['message']}\n\n"
-        f"👇 *Нажми ИГРАТЬ!*",
+        f"👇 *Нажми кнопку внизу, чтобы начать играть!*",
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
