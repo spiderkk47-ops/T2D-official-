@@ -1,4 +1,4 @@
-# app.py — Tap2Drop бот (исправленная версия)
+# app.py — Tap2Drop бот (полностью исправленная версия)
 from flask import Flask, request, jsonify
 import telebot
 import json
@@ -83,7 +83,7 @@ def process_tap(user_id):
     player = data["players"][uid]
     
     if player["energy"] <= 0:
-        return {"success": False, "error": "⚡ Нет энергии!"}
+        return {"success": False, "error": "⚡ Нет энергии! Подождите 5 минут."}
     
     now = time.time()
     
@@ -129,57 +129,52 @@ def process_tap(user_id):
 # ==================== HTML MINI APP ====================
 HTML = """
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Tap2Drop</title>
+    <title>Tap2Drop — Тапай и зарабатывай!</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         body {
-            background: linear-gradient(135deg, #0a0a1a, #1a1a2e);
-            color: white;
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 20px;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 100%);
             min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: white;
+            padding: 20px;
             padding-bottom: 80px;
         }
         .header {
             background: rgba(0,0,0,0.4);
-            border-radius: 20px;
-            padding: 15px;
+            border-radius: 24px;
+            padding: 16px;
             margin-bottom: 20px;
+            backdrop-filter: blur(10px);
         }
         .stats {
             display: flex;
-            justify-content: space-around;
-            margin-bottom: 10px;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 15px;
         }
         .stat {
+            flex: 1;
             text-align: center;
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 8px;
         }
-        .stat-label {
-            font-size: 12px;
-            opacity: 0.7;
-        }
-        .stat-value {
-            font-size: 20px;
-            font-weight: bold;
-        }
-        .burn-value {
-            color: #ff6666;
-        }
-        .tap-area {
-            display: flex;
-            justify-content: center;
-            margin: 30px 0;
-        }
+        .stat-label { font-size: 11px; opacity: 0.7; }
+        .stat-value { font-size: 18px; font-weight: bold; }
+        .burn-value { color: #ff6666; }
+        .tap-area { display: flex; justify-content: center; margin: 20px 0; }
         .tap-button {
             width: 200px;
             height: 200px;
             border-radius: 50%;
             background: linear-gradient(135deg, #ffd700, #ff6600);
-            box-shadow: 0 20px 30px rgba(0,0,0,0.4);
+            box-shadow: 0 20px 30px rgba(0,0,0,0.4), inset 0 2px 10px rgba(255,255,255,0.3);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -187,21 +182,13 @@ HTML = """
             cursor: pointer;
             transition: transform 0.08s ease;
         }
-        .tap-button:active {
-            transform: scale(0.95);
-        }
-        .tap-icon {
-            font-size: 64px;
-        }
-        .tap-text {
-            font-size: 24px;
-            font-weight: bold;
-            margin-top: 8px;
-        }
+        .tap-button:active { transform: scale(0.95); }
+        .tap-icon { font-size: 64px; }
+        .tap-text { font-size: 24px; font-weight: bold; margin-top: 8px; }
         .energy-bar {
             background: #333;
-            height: 10px;
             border-radius: 10px;
+            height: 10px;
             overflow: hidden;
             margin: 15px 0;
         }
@@ -212,7 +199,7 @@ HTML = """
         }
         .combo {
             text-align: center;
-            margin: 10px 0;
+            margin: 15px 0;
             font-size: 18px;
             font-weight: bold;
             color: #ff6600;
@@ -220,8 +207,8 @@ HTML = """
         }
         .progress-bar {
             background: #333;
-            height: 6px;
             border-radius: 10px;
+            height: 6px;
             overflow: hidden;
             margin: 10px 0;
         }
@@ -238,26 +225,16 @@ HTML = """
         }
         .game-card {
             background: rgba(255,255,255,0.1);
-            border-radius: 16px;
+            border-radius: 20px;
             padding: 12px;
             text-align: center;
             cursor: pointer;
             transition: transform 0.1s;
         }
-        .game-card:active {
-            transform: scale(0.95);
-        }
-        .game-icon {
-            font-size: 32px;
-            margin-bottom: 6px;
-        }
-        .game-name {
-            font-size: 12px;
-        }
-        .game-reward {
-            font-size: 10px;
-            color: #ffd700;
-        }
+        .game-card:active { transform: scale(0.95); }
+        .game-icon { font-size: 32px; margin-bottom: 6px; }
+        .game-name { font-size: 11px; }
+        .game-reward { font-size: 10px; color: #ffd700; }
         .nav {
             position: fixed;
             bottom: 0;
@@ -277,23 +254,20 @@ HTML = """
             padding: 8px 16px;
             border-radius: 20px;
             cursor: pointer;
+            transition: all 0.2s;
         }
-        .nav-btn.active {
-            color: #ffd700;
-            background: rgba(255,215,0,0.2);
-        }
+        .nav-btn.active { color: #ffd700; background: rgba(255,215,0,0.2); }
         .particle {
             position: fixed;
             pointer-events: none;
             font-size: 14px;
             font-weight: bold;
-            color: gold;
-            animation: floatUp 0.5s forwards;
+            animation: floatUp 0.5s ease-out forwards;
             z-index: 1000;
         }
         @keyframes floatUp {
-            0% { opacity: 1; transform: translateY(0); }
-            100% { opacity: 0; transform: translateY(-50px); }
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(1.2); }
         }
         .profile-card {
             background: rgba(255,255,255,0.1);
@@ -302,9 +276,7 @@ HTML = """
             margin: 15px 0;
             text-align: left;
         }
-        .profile-card p {
-            margin: 8px 0;
-        }
+        .profile-card p { margin: 8px 0; }
         .referral-code {
             background: rgba(0,0,0,0.5);
             padding: 10px;
@@ -320,6 +292,25 @@ HTML = """
             border-radius: 10px;
             margin: 5px 0;
             font-size: 12px;
+        }
+        .error-container {
+            text-align: center;
+            padding: 50px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .error-container button {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background: #ffd700;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            color: #000;
         }
     </style>
 </head>
@@ -349,7 +340,7 @@ HTML = """
         <div class="progress-bar">
             <div class="progress-fill" id="progressFill"></div>
         </div>
-        <div>🎯 <span id="progressText">0</span>% до аирдропа</div>
+        <div style="font-size:12px; text-align:center;">🎯 <span id="progressText">0</span>% до аирдропа</div>
     </div>
     
     <div class="tap-area">
@@ -364,6 +355,7 @@ HTML = """
     <div class="combo" id="combo"></div>
     
     <div id="gamesPanel" style="display:none;">
+        <h3 style="margin: 15px 0 10px;">🎮 Мини-игры</h3>
         <div class="games-grid">
             <div class="game-card" onclick="playGame('match')">
                 <div class="game-icon">🃏</div>
@@ -398,74 +390,86 @@ HTML = """
     <script>
         let userId = null;
         let tg = window.Telegram?.WebApp;
+        
+        // Получаем ID пользователя из Telegram WebApp
         if (tg) {
             tg.expand();
             tg.ready();
             userId = tg.initDataUnsafe?.user?.id;
-            console.log("User ID:", userId);
+            console.log("Telegram WebApp detected, User ID:", userId);
         }
         
+        // Если нет user ID — показываем инструкцию
+        if (!userId) {
+            document.body.innerHTML = `
+                <div class="error-container" style="background: linear-gradient(135deg, #0a0a1a, #1a1a2e); min-height: 100vh; color: white;">
+                    <h2>❌ Ошибка</h2>
+                    <p style="margin: 20px 0;">Не удалось определить пользователя.</p>
+                    <p>Пожалуйста, откройте это приложение <strong>ТОЛЬКО через кнопку в Telegram боте</strong>.</p>
+                    <p style="margin: 20px 0;">👇 Нажмите кнопку "🚀 ИГРАТЬ" в боте</p>
+                    <button onclick="window.location.href='https://t.me/Tap2Drop_official_bot'">
+                        🔙 Открыть бота
+                    </button>
+                </div>
+            `;
+            throw new Error("No user ID");
+        }
+        
+        // Загрузка данных пользователя
         async function loadData() {
-            if (!userId) {
-                console.log("No user ID");
-                return;
-            }
+            if (!userId) return;
             try {
-                let r = await fetch('/api/user/' + userId);
-                let d = await r.json();
-                console.log("User data:", d);
-                if (d.success) {
-                    document.getElementById('tokens').innerText = Math.floor(d.tokens).toLocaleString();
-                    document.getElementById('energy').innerText = d.energy;
-                    document.getElementById('emission').innerText = d.emission_rate?.toFixed(2) || '0';
-                    document.getElementById('energyFill').style.width = (d.energy / 100 * 100) + '%';
-                    document.getElementById('progressFill').style.width = (d.progress || 0) + '%';
-                    document.getElementById('progressText').innerText = d.progress?.toFixed(2) || '0';
+                let resp = await fetch('/api/user/' + userId);
+                let data = await resp.json();
+                if (data.success) {
+                    document.getElementById('tokens').innerText = Math.floor(data.tokens).toLocaleString();
+                    document.getElementById('energy').innerText = data.energy;
+                    document.getElementById('emission').innerText = data.emission_rate?.toFixed(2) || '0';
+                    document.getElementById('energyFill').style.width = (data.energy / 100 * 100) + '%';
+                    document.getElementById('progressFill').style.width = (data.progress || 0) + '%';
+                    document.getElementById('progressText').innerText = data.progress?.toFixed(2) || '0';
                 }
             } catch(e) {
                 console.error("Load error:", e);
             }
         }
         
+        // Обработка тапа
         document.getElementById('tapBtn').onclick = async () => {
-            if (!userId) {
-                alert("Не удалось определить пользователя. Перезапустите приложение.");
-                return;
-            }
+            if (!userId) return;
             let btn = document.getElementById('tapBtn');
             btn.style.transform = 'scale(0.95)';
             setTimeout(() => btn.style.transform = '', 100);
             
             try {
-                let r = await fetch('/api/tap', {
+                let resp = await fetch('/api/tap', {
                     method: 'POST',
-                    headers: {'Content-Type':'application/json'},
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({user_id: userId})
                 });
-                let d = await r.json();
-                console.log("Tap response:", d);
-                if (d.success) {
-                    document.getElementById('tokens').innerText = Math.floor(d.tokens).toLocaleString();
-                    document.getElementById('energy').innerText = d.energy;
-                    document.getElementById('tapValue').innerHTML = `+${d.earned.toFixed(4)}`;
-                    document.getElementById('burnValue').innerHTML = `🔥 ${d.burned.toFixed(4)} сгорает`;
-                    document.getElementById('energyFill').style.width = (d.energy / 100 * 100) + '%';
+                let data = await resp.json();
+                if (data.success) {
+                    document.getElementById('tokens').innerText = Math.floor(data.tokens).toLocaleString();
+                    document.getElementById('energy').innerText = data.energy;
+                    document.getElementById('tapValue').innerHTML = `+${data.earned.toFixed(4)}`;
+                    document.getElementById('burnValue').innerHTML = `🔥 ${data.burned.toFixed(4)} сгорает`;
+                    document.getElementById('energyFill').style.width = (data.energy / 100 * 100) + '%';
                     
-                    if (d.combo > 1) {
-                        document.getElementById('combo').innerHTML = `🔥 x${d.combo} COMBO! +${d.bonus_percent.toFixed(0)}%`;
+                    if (data.combo > 1) {
+                        document.getElementById('combo').innerHTML = `🔥 x${data.combo} COMBO! +${data.bonus_percent.toFixed(0)}%`;
                     } else {
                         document.getElementById('combo').innerHTML = '';
                     }
                     
-                    let p = document.createElement('div');
-                    p.className = 'particle';
-                    p.innerHTML = `+${d.earned.toFixed(4)}`;
-                    p.style.left = Math.random() * window.innerWidth + 'px';
-                    p.style.top = window.innerHeight - 150 + 'px';
-                    document.body.appendChild(p);
-                    setTimeout(() => p.remove(), 500);
-                } else if (d.error) {
-                    alert(d.error);
+                    let particle = document.createElement('div');
+                    particle.className = 'particle';
+                    particle.innerHTML = `+${data.earned.toFixed(4)}`;
+                    particle.style.left = Math.random() * window.innerWidth + 'px';
+                    particle.style.top = window.innerHeight - 150 + 'px';
+                    document.body.appendChild(particle);
+                    setTimeout(() => particle.remove(), 500);
+                } else if (data.error) {
+                    alert(data.error);
                 }
             } catch(e) {
                 console.error("Tap error:", e);
@@ -473,38 +477,40 @@ HTML = """
             }
         };
         
+        // Мини-игры
         async function playGame(game) {
             if (!userId) return;
             try {
-                let r = await fetch('/api/play_game', {
+                let resp = await fetch('/api/play_game', {
                     method: 'POST',
-                    headers: {'Content-Type':'application/json'},
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({user_id: userId, game: game})
                 });
-                let d = await r.json();
-                if (d.success) {
-                    alert(`🎮 Игра завершена! +${d.energy_gain} ⚡ энергии`);
-                    document.getElementById('energy').innerText = d.new_energy;
-                    document.getElementById('energyFill').style.width = (d.new_energy / 100 * 100) + '%';
+                let data = await resp.json();
+                if (data.success) {
+                    alert(`🎮 Игра завершена! +${data.energy_gain} ⚡ энергии`);
+                    document.getElementById('energy').innerText = data.new_energy;
+                    document.getElementById('energyFill').style.width = (data.new_energy / 100 * 100) + '%';
                 } else {
-                    alert(d.error);
+                    alert(data.error);
                 }
             } catch(e) {
                 alert("Ошибка игры");
             }
         }
         
+        // Загрузка профиля
         async function loadProfile() {
             if (!userId) return;
             try {
-                let r = await fetch('/api/user/' + userId);
-                let d = await r.json();
-                if (d.success) {
+                let resp = await fetch('/api/user/' + userId);
+                let data = await resp.json();
+                if (data.success) {
                     document.getElementById('profileInfo').innerHTML = `
-                        <p>👤 ${d.username}</p>
-                        <p>📊 Тапов: ${d.total_taps?.toLocaleString() || 0}</p>
-                        <p>💰 Токенов: ${Math.floor(d.tokens).toLocaleString()} $T2D</p>
-                        <p>⚡ Энергии: ${d.energy}/100</p>
+                        <p>👤 ${data.username}</p>
+                        <p>📊 Тапов: ${data.total_taps?.toLocaleString() || 0}</p>
+                        <p>💰 Токенов: ${Math.floor(data.tokens).toLocaleString()} $T2D</p>
+                        <p>⚡ Энергии: ${data.energy}/100</p>
                     `;
                     
                     let botUsername = "Tap2Drop_official_bot";
@@ -515,11 +521,11 @@ HTML = """
                     `;
                     
                     let achievementsHtml = '<h4>🏆 Достижения</h4>';
-                    if (d.total_taps >= 1000) achievementsHtml += '<div class="achievement">🥉 Бронзовый палец (1000 тапов)</div>';
-                    if (d.total_taps >= 10000) achievementsHtml += '<div class="achievement">🥈 Серебряный палец (10000 тапов)</div>';
-                    if (d.total_taps >= 100000) achievementsHtml += '<div class="achievement">🥇 Золотой палец (100000 тапов)</div>';
-                    if (d.total_taps >= 1000000) achievementsHtml += '<div class="achievement">💎 Алмазный палец (1M тапов)</div>';
-                    if (d.total_taps < 1000) achievementsHtml += '<p>Начни тапать, чтобы получить достижения!</p>';
+                    if (data.total_taps >= 1000) achievementsHtml += '<div class="achievement">🥉 Бронзовый палец (1000 тапов)</div>';
+                    if (data.total_taps >= 10000) achievementsHtml += '<div class="achievement">🥈 Серебряный палец (10000 тапов)</div>';
+                    if (data.total_taps >= 100000) achievementsHtml += '<div class="achievement">🥇 Золотой палец (100000 тапов)</div>';
+                    if (data.total_taps >= 1000000) achievementsHtml += '<div class="achievement">💎 Алмазный палец (1M тапов)</div>';
+                    if (data.total_taps < 1000) achievementsHtml += '<p>Начни тапать, чтобы получить достижения!</p>';
                     document.getElementById('achievements').innerHTML = achievementsHtml;
                 }
             } catch(e) {
@@ -527,6 +533,7 @@ HTML = """
             }
         }
         
+        // Навигация
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.onclick = () => {
                 document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -539,6 +546,7 @@ HTML = """
             };
         });
         
+        // Запуск
         loadData();
         setInterval(loadData, 5000);
     </script>
@@ -624,8 +632,11 @@ def play_game_route():
 # ==================== TELEGRAM WEBHOOK ====================
 @app.route(f'/{BOT_TOKEN}', methods=['POST'])
 def webhook():
-    update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
-    bot.process_new_updates([update])
+    try:
+        update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
+        bot.process_new_updates([update])
+    except Exception as e:
+        print(f"Webhook error: {e}")
     return 'OK', 200
 
 @bot.message_handler(commands=['start'])
@@ -666,7 +677,7 @@ def start(message):
         f"⚡ Энергии: {player['energy']}/100\n"
         f"📊 Тапов: {player['total_taps']}\n\n"
         f"{airdrop['message']}\n\n"
-        f"👇 Нажми ИГРАТЬ!",
+        f"👇 *Нажми ИГРАТЬ!*",
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
