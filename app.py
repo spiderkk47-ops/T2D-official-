@@ -10,7 +10,7 @@ import random
 app = Flask(__name__)
 
 # ==================== КОНФИГУРАЦИЯ ====================
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8511088817:AAFy8t4LALPR5jPl0vANi_HLREd2JQ2nCFY")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8636925390:AAEAZHfnaYfw4TVRPLIsyYhkQBz55r18hlw")
 DATA_FILE = "tap2drop_data.json"
 
 PLAYER_POOL = 60_000_000_000
