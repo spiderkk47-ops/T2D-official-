@@ -1,20 +1,18 @@
-# app.py — Tap2Drop бот
-from flask import Flask, request, jsonify, render_template_string
+# app.py — Tap2Drop бот (исправленная версия)
+from flask import Flask, request, jsonify
 import telebot
 import json
 import os
 import time
 import math
 import random
-import requests
 
 app = Flask(__name__)
 
 # ==================== КОНФИГУРАЦИЯ ====================
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8511088817:AAFy8t4LALPR5jPl0vANi_HLREd2JQ2nCFY")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8511088817:AAFy8t4LALPR5jPl0vANi_HLREd2JQ2nCFY)
 DATA_FILE = "tap2drop_data.json"
 
-# Параметры токеномики
 PLAYER_POOL = 60_000_000_000
 BURN_PERCENT = 0.10
 MIN_EMISSION = 0.5
@@ -134,7 +132,6 @@ HTML = """
             font-family: Arial;
             text-align: center;
             padding: 20px;
-            min-height: 100vh;
         }
         .tap-btn {
             width: 200px;
@@ -148,7 +145,6 @@ HTML = """
             font-size: 64px;
             cursor: pointer;
             transition: transform 0.08s;
-            box-shadow: 0 20px 30px rgba(0,0,0,0.4);
         }
         .tap-btn:active { transform: scale(0.95); }
         .stats {
@@ -170,26 +166,6 @@ HTML = """
             transition: width 0.3s;
         }
         .combo { color: #ff6600; margin: 10px 0; font-size: 18px; }
-        .nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0,0,0,0.95);
-            display: flex;
-            padding: 12px;
-            gap: 10px;
-            justify-content: center;
-        }
-        .nav-btn {
-            background: none;
-            border: none;
-            color: #888;
-            padding: 8px 20px;
-            border-radius: 20px;
-            cursor: pointer;
-        }
-        .nav-btn.active { color: #ffd700; background: rgba(255,215,0,0.2); }
         .progress-bar {
             background: #333;
             height: 6px;
@@ -201,6 +177,38 @@ HTML = """
             background: linear-gradient(90deg, #ff4444, #ffaa00);
             height: 100%;
             transition: width 0.3s;
+        }
+        .nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            padding: 12px;
+            justify-content: center;
+            gap: 20px;
+        }
+        .nav-btn {
+            background: none;
+            border: none;
+            color: #888;
+            padding: 8px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .nav-btn.active { color: #ffd700; background: rgba(255,215,0,0.2); }
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            font-size: 14px;
+            color: gold;
+            animation: floatUp 0.5s forwards;
+            z-index: 1000;
+        }
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-50px); }
         }
         .games-grid {
             display: grid;
@@ -215,18 +223,6 @@ HTML = """
             cursor: pointer;
         }
         .game-card:active { transform: scale(0.95); }
-        .particle {
-            position: fixed;
-            pointer-events: none;
-            font-size: 14px;
-            color: gold;
-            animation: floatUp 0.5s forwards;
-            z-index: 1000;
-        }
-        @keyframes floatUp {
-            0% { opacity: 1; transform: translateY(0); }
-            100% { opacity: 0; transform: translateY(-50px); }
-        }
     </style>
 </head>
 <body>
@@ -456,6 +452,7 @@ def start(message):
     player = data["players"][uid]
     airdrop = get_airdrop_info(data)
     
+    # Получаем URL из переменной окружения Render
     webapp_url = os.environ.get("RENDER_EXTERNAL_URL", "https://your-app.onrender.com")
     keyboard = telebot.types.InlineKeyboardMarkup()
     keyboard.add(telebot.types.InlineKeyboardButton(
@@ -476,12 +473,8 @@ def start(message):
         parse_mode="Markdown"
     )
 
+# ==================== ЗАПУСК ====================
 if __name__ == "__main__":
-    # Установка вебхука
-    webhook_url = f"https://{os.environ.get('RENDER_EXTERNAL_URL', 'localhost')}/{BOT_TOKEN}"
-    bot.remove_webhook()
-    bot.set_webhook(url=webhook_url)
-    
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
 
